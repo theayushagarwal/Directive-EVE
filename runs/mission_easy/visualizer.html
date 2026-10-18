@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WALL-E & EVE Mission Visualizer</title>
+<style>
+  :root {
+    --bg-dark: #090d16;
+    --card-bg: #111827;
+    --card-border: #1f293d;
+    --text-primary: #f8fafc;
+    --text-muted: #94a3b8;
+    --accent-blue: #3b82f6;
+    --accent-green: #10b981;
+    --accent-amber: #f59e0b;
+    --accent-orange: #f97316;
+    --accent-purple: #a855f7;
+    --accent-red: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Header */
+  header {
+    background-color: var(--card-bg);
+    border-bottom: 1px solid var(--card-border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .title-group { display: flex; align-items: center; gap: 12px; }
+  .title-group h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em; }
+  .badge {
+    padding: 3px 8px;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .badge-found { background: #064e3b; color: #34d399; border: 1px solid #059669; }
+  .badge-active { background: #1e3a8a; color: #60a5fa; border: 1px solid #2563eb; }
+  .badge-other { background: #7f1d1d; color: #f87171; border: 1px solid #dc2626; }
+
+  /* Main Container */
+  .main-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Left/Center: Viewport & Controls */
+  .viewport-panel {
+    flex: 1.25;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 12px;
+    overflow: hidden;
+  }
+  .canvas-wrapper {
+    flex: 1;
+    background: #060911;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  canvas#gridCanvas {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    border-radius: 4px;
+    cursor: crosshair;
+  }
+  .tooltip {
+    position: absolute;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid #334155;
+    color: #f1f5f9;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    pointer-events: none;
+    display: none;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+  }
+
+  /* Controls */
+  .control-bar {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .btn {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #f8fafc;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+  }
+  .btn:hover { background: #334155; border-color: #475569; }
+  .btn-primary { background: var(--accent-blue); border-color: #2563eb; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn:active { transform: scale(0.97); }
+
+  .scrubber-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .scrubber-container input[type=range] {
+    flex: 1;
+    accent-color: var(--accent-blue);
+    cursor: pointer;
+  }
+  .step-label {
+    font-family: monospace;
+    font-size: 0.85rem;
+    min-width: 90px;
+    color: var(--text-muted);
+  }
+
+  /* Right: Telemetry & Reasoning */
+  .telemetry-panel {
+    flex: 1;
+    min-width: 360px;
+    max-width: 480px;
+    background: var(--card-bg);
+    border-left: 1px solid var(--card-border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--card-border);
+    background: #0d131f;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 10px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .tab-btn.active {
+    color: var(--text-primary);
+    border-bottom-color: var(--accent-blue);
+    background: var(--card-bg);
+  }
+
+  .panel-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--card-border);
+  }
+  .section-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* Metrics Grid */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .metric-card {
+    background: #0a0f1d;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .metric-label { font-size: 0.68rem; color: var(--text-muted); }
+  .metric-value { font-size: 1.05rem; font-weight: 700; font-family: monospace; margin-top: 2px; }
+
+  /* Reasoning Box */
+  .reasoning-card {
+    background: #0f172a;
+    border-left: 4px solid var(--accent-blue);
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    margin-bottom: 10px;
+  }
+  .strategy-tag {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  /* Candidates Table */
+  .candidates-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.72rem;
+    font-family: monospace;
+  }
+  .candidates-table th {
+    text-align: left;
+    color: var(--text-muted);
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--card-border);
+  }
+  .candidates-table td {
+    padding: 5px 6px;
+    border-bottom: 1px solid #172033;
+  }
+
+  /* Status Bars */
+  .status-bars { display: flex; flex-direction: column; gap: 6px; }
+  .status-bar-row { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; }
+  .status-bar-name { width: 65px; color: var(--text-muted); }
+  .status-bar-track { flex: 1; height: 6px; background: #1e293b; border-radius: 3px; overflow: hidden; }
+  .status-bar-fill { height: 100%; border-radius: 3px; transition: width 0.2s ease; }
+
+  /* Timeline Canvas */
+  .timeline-container {
+    height: 90px;
+    background: #090e1a;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    position: relative;
+    cursor: pointer;
+  }
+  canvas#timelineCanvas { width: 100%; height: 100%; display: block; }
+
+  /* Legend */
+  .legend-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    padding: 4px 0;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  .toggle-switch {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .toggle-switch input { cursor: pointer; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-group">
+    <span style="font-size: 1.3rem;">🤖</span>
+    <div>
+      <h1 id="missionTitle">WALL-E & EVE Mission</h1>
+      <div style="font-size: 0.72rem; color: var(--text-muted);" id="missionMeta">Loading...</div>
+    </div>
+    <span id="outcomeBadge" class="badge">--</span>
+  </div>
+  <div style="display: flex; gap: 10px; align-items: center;">
+    <label class="toggle-switch">
+      <input type="checkbox" id="evalToggle"> Show Ground Truth (Evaluation)
+    </label>
+    <label class="toggle-switch">
+      <input type="checkbox" id="heatmapToggle" checked> Heatmap
+    </label>
+    <button class="btn" id="openReportBtn">📄 Report</button>
+  </div>
+</header>
+
+<div class="main-layout">
+  <!-- Viewport -->
+  <div class="viewport-panel">
+    <div class="canvas-wrapper">
+      <canvas id="gridCanvas"></canvas>
+      <div id="cellTooltip" class="tooltip"></div>
+    </div>
+
+    <!-- Scrubber & Controls -->
+    <div class="control-bar">
+      <button class="btn" id="btnFirst" title="First step">⏮</button>
+      <button class="btn" id="btnPrev" title="Previous step">◀</button>
+      <button class="btn btn-primary" id="btnPlay" title="Play / Pause">▶ Play</button>
+      <button class="btn" id="btnNext" title="Next step">▶</button>
+      <button class="btn" id="btnLast" title="Last step">⏭</button>
+      
+      <div class="scrubber-container">
+        <input type="range" id="stepScrubber" min="0" max="1" value="0">
+        <span class="step-label" id="stepCounter">Step 0 / 0</span>
+      </div>
+
+      <select id="speedSelect" class="btn" style="padding: 5px 8px;">
+        <option value="1">1x Speed</option>
+        <option value="2" selected>2x Speed</option>
+        <option value="5">5x Speed</option>
+        <option value="10">10x Speed</option>
+      </select>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend-bar">
+      <div class="legend-item"><div class="legend-dot" style="background: #d4a017;"></div> Station</div>
+      <div class="legend-item"><div class="legend-dot" style="background: #a855f7;"></div> Clue</div>
+      <div class="legend-item"><div class="legend-dot" style="background: #10b981;"></div> EVE (Ground Truth)</div>
+      <div class="legend-item"><div class="legend-dot" style="background: #ef4444;"></div> Decoy (Ground Truth)</div>
+      <div class="legend-item"><div class="legend-dot" style="background: #3b82f6;"></div> Localize</div>
+      <div class="legend-item"><div class="legend-dot" style="background: #10b981;"></div> Approach</div>
+      <div class="legend-item"><div class="legend-dot" style="background: #f97316;"></div> Return</div>
+      <div class="legend-item"><div class="legend-dot" style="background: #eab308;"></div> Recharge</div>
+    </div>
+  </div>
+
+  <!-- Telemetry HUD -->
+  <div class="telemetry-panel">
+    <!-- Top Gauges -->
+    <div class="panel-section">
+      <div class="section-title">Telemetry & Resources</div>
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">BATTERY</div>
+          <div class="metric-value" id="valBattery" style="color: var(--accent-orange);">--</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">TIME LEFT</div>
+          <div class="metric-value" id="valTime">--</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">ENTROPY</div>
+          <div class="metric-value" id="valEntropy" style="color: var(--accent-blue);">--</div>
+        </div>
+      </div>
+
+      <!-- Inferred Condition -->
+      <div class="status-bars">
+        <div class="status-bar-row">
+          <span class="status-bar-name">Active</span>
+          <div class="status-bar-track"><div id="barActive" class="status-bar-fill" style="background: var(--accent-green); width: 0%;"></div></div>
+          <span id="pctActive" style="width: 38px; text-align: right; font-family: monospace;">0%</span>
+        </div>
+        <div class="status-bar-row">
+          <span class="status-bar-name">Damaged</span>
+          <div class="status-bar-track"><div id="barDamaged" class="status-bar-fill" style="background: var(--accent-amber); width: 0%;"></div></div>
+          <span id="pctDamaged" style="width: 38px; text-align: right; font-family: monospace;">0%</span>
+        </div>
+        <div class="status-bar-row">
+          <span class="status-bar-name">Dormant</span>
+          <div class="status-bar-track"><div id="barDormant" class="status-bar-fill" style="background: var(--accent-red); width: 0%;"></div></div>
+          <span id="pctDormant" style="width: 38px; text-align: right; font-family: monospace;">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Agent Decision -->
+    <div class="panel-section">
+      <div class="section-title">
+        <span>Agent Decision & Reasoning</span>
+        <span id="currentStrategyTag" class="strategy-tag" style="background: #1e293b;">--</span>
+      </div>
+      <div class="reasoning-card" id="reasoningText">
+        Agent reasoning will appear here as you scrub through steps.
+      </div>
+      <div style="font-size: 0.75rem; margin-bottom: 6px;">
+        <strong>Action Executed:</strong> <span id="actionExecuted" style="font-family: monospace; color: var(--accent-blue);">--</span>
+      </div>
+      <div style="font-size: 0.75rem;">
+        <strong>Observation Event:</strong> <span id="obsEvent" style="font-family: monospace; color: var(--accent-amber);">--</span>
+      </div>
+    </div>
+
+    <!-- Candidate Alternatives Weighed -->
+    <div class="panel-section" style="flex: 1;">
+      <div class="section-title">Top Alternatives Weighed</div>
+      <div style="overflow-x: auto;">
+        <table class="candidates-table">
+          <thead>
+            <tr><th>Action</th><th>Target</th><th>Gain</th><th>Steps</th><th>Score</th></tr>
+          </thead>
+          <tbody id="candidatesTableBody">
+            <tr><td colspan="5" style="color: var(--text-muted); text-align: center;">No candidates logged</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Timeline Chart -->
+    <div class="panel-section">
+      <div class="section-title">Mission Timeline (Click to Seek)</div>
+      <div class="timeline-container">
+        <canvas id="timelineCanvas"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Embedded Mission Data -->
+<script id="mission-data" type="application/json">
+{"report": {"mission": "mission_easy", "seed": 7, "agent": "belief", "outcome": "found", "found": true, "inferred_location": {"cell": [4, 6], "within_cells": 1, "confirmed": true}, "location_confidence": 1.0, "inferred_status": {"status": "active", "probability": 1.0, "basis": "confirmed by direct inspection", "distribution": {"active": 0.764, "damaged": 0.215, "dormant": 0.021}}, "evidence": {"initial_signal": {"strength": 0.4455, "bearing_deg": 68.7754, "timestamp": 0.0, "origin": [1, 1]}, "signal_readings": 2, "signal_dropouts": 0, "strongest_reading": {"step": 7, "pos": [1, 5], "strength": 0.6764476873386572, "bearing_deg": 9.872833882325642}, "suspicious_readings": 1, "clues": [], "cells_inspected_empty": [[1, 5], [3, 5]]}, "recommended_next_step": "EVE is responsive: open a comms link and escort her to the nearest station. She is 8 steps from a station; a round trip needs about 20 battery.", "resources": {"steps": 13, "battery_spent": 15.0, "time_used": 13.0, "time_budget": 160, "recharges": 0, "stats": {"moves": 8, "bumps": 0, "scans": 2, "area_scans": 0, "inspects": 3, "recharges": 0, "dropouts": 0, "suspicious": 1}}, "strategy_timeline": [{"phase": "localize", "from_step": 1, "to_step": 1}, {"phase": "approach-eve", "from_step": 2, "to_step": 6}, {"phase": "localize", "from_step": 7, "to_step": 7}, {"phase": "approach-eve", "from_step": 8, "to_step": 13}], "evaluation_only": {"note": "Ground truth, used only to score the run. The agent never saw any of this.", "eve_position": [3, 7], "eve_status": "active", "best_guess_error_cells": 1.41, "decoy_clues": [0], "decoy_signal_sources": []}}, "trace": [{"step": 1, "before": {"pos": [1, 1], "battery": 100.0, "time_left": 160.0}, "strategy": "localize", "reason": "Scanning here: expected to cut uncertainty by 0.20 nats for little cost (entropy now 5.99).", "candidates": [{"kind": "scan", "cell": [1, 1], "gain": 0.198, "score": 7.265, "steps": 0}, {"kind": "scan", "cell": [1, 0], "gain": 0.202, "score": 4.646, "steps": 1}, {"kind": "scan", "cell": [0, 1], "gain": 0.202, "score": 4.642, "steps": 1}, {"kind": "scan", "cell": [1, 2], "gain": 0.195, "score": 4.475, "steps": 1}], "action": {"type": "SCAN_SIGNAL"}, "observation": {"ok": true, "event": "signal", "pos": [1, 1], "battery": 98.0, "time_left": 159.0, "at_station": true, "neighbors": {"N": "free", "E": "wall", "S": "free", "W": "free"}, "done": false, "outcome": null, "reading": {"strength": 0.6380743448099258, "bearing_deg": 94.68678920095458}}, "belief": {"entropy": 5.7308, "map_cell": [2, 6], "map_mass_r2": 0.2985, "status": "active", "status_p": {"active": 0.6597, "damaged": 0.2708, "dormant": 0.0694}}}, {"step": 2, "before": {"pos": [1, 1], "battery": 98.0, "time_left": 159.0}, "strategy": "approach-eve", "reason": "Heading 4 steps to (1, 5): about 16% of the belief sits within one cell of it, so inspecting there is worth the trip.", "candidates": [{"kind": "inspect", "cell": [1, 5], "gain": 0.937, "score": 11.397, "steps": 4}, {"kind": "inspect", "cell": [2, 5], "gain": 0.974, "score": 9.891, "steps": 5}, {"kind": "inspect", "cell": [1, 6], "gain": 0.959, "score": 9.736, "steps": 5}, {"kind": "inspect", "cell": [2, 6], "gain": 1.04, "score": 9.06, "steps": 6}], "action": {"type": "MOVE", "dir": "S"}, "observation": {"ok": true, "event": "moved", "pos": [1, 2], "battery": 97.0, "time_left": 158.0, "at_station": false, "neighbors": {"N": "free", "E": "free", "S": "free", "W": "free"}, "done": false, "outcome": null}, "belief": {"entropy": 5.7308, "map_cell": [2, 6], "map_mass_r2": 0.2985, "status": "active", "status_p": {"active": 0.6597, "damaged": 0.2708, "dormant": 0.0694}}}, {"step": 3, "before": {"pos": [1, 2], "battery": 97.0, "time_left": 158.0}, "strategy": "approach-eve", "reason": "Heading 3 steps to (1, 5): about 16% of the belief sits within one cell of it, so inspecting there is worth the trip.", "candidates": [{"kind": "inspect", "cell": [1, 5], "gain": 0.937, "score": 14.203, "steps": 3}, {"kind": "inspect", "cell": [2, 5], "gain": 0.974, "score": 11.846, "steps": 4}, {"kind": "inspect", "cell": [1, 6], "gain": 0.959, "score": 11.659, "steps": 4}, {"kind": "inspect", "cell": [2, 6], "gain": 1.04, "score": 10.555, "steps": 5}], "action": {"type": "MOVE", "dir": "S"}, "observation": {"ok": true, "event": "moved", "pos": [1, 3], "battery": 96.0, "time_left": 157.0, "at_station": false, "neighbors": {"N": "free", "E": "free", "S": "free", "W": "free"}, "done": false, "outcome": null}, "belief": {"entropy": 5.7308, "map_cell": [2, 6], "map_mass_r2": 0.2985, "status": "active", "status_p": {"active": 0.6597, "damaged": 0.2708, "dormant": 0.0694}}}, {"step": 4, "before": {"pos": [1, 3], "battery": 96.0, "time_left": 157.0}, "strategy": "approach-eve", "reason": "Heading 2 steps to (1, 5): about 16% of the belief sits within one cell of it, so inspecting there is worth the trip.", "candidates": [{"kind": "inspect", "cell": [1, 5], "gain": 0.937, "score": 18.842, "steps": 2}, {"kind": "inspect", "cell": [2, 5], "gain": 0.974, "score": 14.762, "steps": 3}, {"kind": "inspect", "cell": [1, 6], "gain": 0.959, "score": 14.53, "steps": 3}, {"kind": "inspect", "cell": [2, 6], "gain": 1.04, "score": 12.64, "steps": 4}], "action": {"type": "MOVE", "dir": "S"}, "observation": {"ok": true, "event": "moved", "pos": [1, 4], "battery": 95.0, "time_left": 156.0, "at_station": false, "neighbors": {"N": "free", "E": "free", "S": "free", "W": "free"}, "done": false, "outcome": null}, "belief": {"entropy": 5.7308, "map_cell": [2, 6], "map_mass_r2": 0.2985, "status": "active", "status_p": {"active": 0.6597, "damaged": 0.2708, "dormant": 0.0694}}}, {"step": 5, "before": {"pos": [1, 4], "battery": 95.0, "time_left": 156.0}, "strategy": "approach-eve", "reason": "Heading 1 steps to (1, 5): about 16% of the belief sits within one cell of it, so inspecting there is worth the trip.", "candidates": [{"kind": "inspect", "cell": [1, 5], "gain": 0.937, "score": 27.982, "steps": 1}, {"kind": "inspect", "cell": [2, 5], "gain": 0.974, "score": 19.584, "steps": 2}, {"kind": "inspect", "cell": [1, 6], "gain": 0.959, "score": 19.275, "steps": 2}, {"kind": "inspect", "cell": [2, 6], "gain": 1.04, "score": 15.752, "steps": 3}], "action": {"type": "MOVE", "dir": "S"}, "observation": {"ok": true, "event": "moved", "pos": [1, 5], "battery": 94.0, "time_left": 155.0, "at_station": false, "neighbors": {"N": "free", "E": "free", "S": "free", "W": "free"}, "done": false, "outcome": null}, "belief": {"entropy": 5.7308, "map_cell": [2, 6], "map_mass_r2": 0.2985, "status": "active", "status_p": {"active": 0.6597, "damaged": 0.2708, "dormant": 0.0694}}}, {"step": 6, "before": {"pos": [1, 5], "battery": 94.0, "time_left": 155.0}, "strategy": "approach-eve", "reason": "Inspecting: 16% of the belief is within one cell of here.", "candidates": [{"kind": "inspect", "cell": [1, 5], "gain": 0.937, "score": 54.342, "steps": 0}, {"kind": "inspect", "cell": [2, 5], "gain": 0.974, "score": 29.084, "steps": 1}, {"kind": "inspect", "cell": [1, 6], "gain": 0.959, "score": 28.625, "steps": 1}, {"kind": "inspect", "cell": [2, 6], "gain": 1.04, "score": 20.897, "steps": 2}], "action": {"type": "INSPECT"}, "observation": {"ok": true, "event": "nothing_here", "pos": [1, 5], "battery": 93.0, "time_left": 154.0, "at_station": false, "neighbors": {"N": "free", "E": "free", "S": "free", "W": "free"}, "done": false, "outcome": null, "found": false, "status": null}, "belief": {"entropy": 5.8869, "map_cell": [3, 6], "map_mass_r2": 0.1834, "status": "active", "status_p": {"active": 0.6597, "damaged": 0.2708, "dormant": 0.0694}}}, {"step": 7, "before": {"pos": [1, 5], "battery": 93.0, "time_left": 154.0}, "strategy": "localize", "reason": "Scanning here: expected to cut uncertainty by 0.18 nats for little cost (entropy now 5.89).", "candidates": [{"kind": "scan", "cell": [1, 5], "gain": 0.182, "score": 6.676, "steps": 0}, {"kind": "area", "cell": [1, 5], "gain": 0.254, "score": 5.836, "steps": 0}, {"kind": "area", "cell": [2, 5], "gain": 0.319, "score": 5.343, "steps": 1}, {"kind": "scan", "cell": [0, 5], "gain": 0.2, "score": 4.588, "steps": 1}], "action": {"type": "SCAN_SIGNAL"}, "observation": {"ok": true, "event": "signal", "pos": [1, 5], "battery": 91.0, "time_left": 153.0, "at_station": false, "neighbors": {"N": "free", "E": "free", "S": "free", "W": "free"}, "done": false, "outcome": null, "reading": {"strength": 0.6764476873386572, "bearing_deg": 9.872833882325642}}, "belief": {"entropy": 5.308, "map_cell": [3, 6], "map_mass_r2": 0.3923, "status": "active", "status_p": {"active": 0.7642, "damaged": 0.2146, "dormant": 0.0212}}}, {"step": 8, "before": {"pos": [1, 5], "battery": 91.0, "time_left": 153.0}, "strategy": "approach-eve", "reason": "Heading 2 steps to (3, 5): about 22% of the belief sits within one cell of it, so inspecting there is worth the trip.", "candidates": [{"kind": "inspect", "cell": [3, 5], "gain": 1.341, "score": 26.954, "steps": 2}, {"kind": "inspect", "cell": [4, 5], "gain": 1.731, "score": 26.228, "steps": 3}, {"kind": "inspect", "cell": [3, 6], "gain": 1.56, "score": 23.64, "steps": 3}, {"kind": "inspect", "cell": [4, 6], "gain": 1.912, "score": 23.244, "steps": 4}], "action": {"type": "MOVE", "dir": "E"}, "observation": {"ok": true, "event": "moved", "pos": [2, 5], "battery": 90.0, "time_left": 152.0, "at_station": false, "neighbors": {"N": "free", "E": "free", "S": "free", "W": "free"}, "done": false, "outcome": null}, "belief": {"entropy": 5.308, "map_cell": [3, 6], "map_mass_r2": 0.3923, "status": "active", "status_p": {"active": 0.7642, "damaged": 0.2146, "dormant": 0.0212}}}, {"step": 9, "before": {"pos": [2, 5], "battery": 90.0, "time_left": 152.0}, "strategy": "approach-eve", "reason": "Heading 1 steps to (3, 5): about 22% of the belief sits within one cell of it, so inspecting there is worth the trip.", "candidates": [{"kind": "inspect", "cell": [3, 5], "gain": 1.341, "score": 40.029, "steps": 1}, {"kind": "inspect", "cell": [4, 5], "gain": 1.731, "score": 34.795, "steps": 2}, {"kind": "inspect", "cell": [3, 6], "gain": 1.56, "score": 31.362, "steps": 2}, {"kind": "inspect", "cell": [4, 6], "gain": 1.912, "score": 28.967, "steps": 3}], "action": {"type": "MOVE", "dir": "E"}, "observation": {"ok": true, "event": "moved", "pos": [3, 5], "battery": 89.0, "time_left": 151.0, "at_station": false, "neighbors": {"N": "free", "E": "free", "S": "free", "W": "free"}, "done": false, "outcome": null}, "belief": {"entropy": 5.308, "map_cell": [3, 6], "map_mass_r2": 0.3923, "status": "active", "status_p": {"active": 0.7642, "damaged": 0.2146, "dormant": 0.0212}}}, {"step": 10, "before": {"pos": [3, 5], "battery": 89.0, "time_left": 151.0}, "strategy": "approach-eve", "reason": "Inspecting: 22% of the belief is within one cell of here.", "candidates": [{"kind": "inspect", "cell": [3, 5], "gain": 1.341, "score": 77.738, "steps": 0}, {"kind": "inspect", "cell": [4, 5], "gain": 1.731, "score": 51.673, "steps": 1}, {"kind": "inspect", "cell": [3, 6], "gain": 1.56, "score": 46.575, "steps": 1}, {"kind": "inspect", "cell": [4, 6], "gain": 1.912, "score": 38.428, "steps": 2}], "action": {"type": "INSPECT"}, "observation": {"ok": true, "event": "nothing_here", "pos": [3, 5], "battery": 88.0, "time_left": 150.0, "at_station": false, "neighbors": {"N": "free", "E": "free", "S": "free", "W": "free"}, "done": false, "outcome": null, "found": false, "status": null}, "belief": {"entropy": 5.6937, "map_cell": [5, 6], "map_mass_r2": 0.2337, "status": "active", "status_p": {"active": 0.7642, "damaged": 0.2146, "dormant": 0.0212}}}, {"step": 11, "before": {"pos": [3, 5], "battery": 88.0, "time_left": 150.0}, "strategy": "approach-eve", "reason": "Heading 2 steps to (4, 6): about 14% of the belief sits within one cell of it, so inspecting there is worth the trip.", "candidates": [{"kind": "inspect", "cell": [4, 6], "gain": 0.862, "score": 17.328, "steps": 2}, {"kind": "inspect", "cell": [5, 6], "gain": 0.923, "score": 13.981, "steps": 3}, {"kind": "inspect", "cell": [4, 7], "gain": 0.792, "score": 11.997, "steps": 3}, {"kind": "inspect", "cell": [6, 5], "gain": 0.756, "score": 11.454, "steps": 3}], "action": {"type": "MOVE", "dir": "E"}, "observation": {"ok": true, "event": "moved", "pos": [4, 5], "battery": 87.0, "time_left": 149.0, "at_station": false, "neighbors": {"N": "free", "E": "free", "S": "free", "W": "free"}, "done": false, "outcome": null}, "belief": {"entropy": 5.6937, "map_cell": [5, 6], "map_mass_r2": 0.2337, "status": "active", "status_p": {"active": 0.7642, "damaged": 0.2146, "dormant": 0.0212}}}, {"step": 12, "before": {"pos": [4, 5], "battery": 87.0, "time_left": 149.0}, "strategy": "approach-eve", "reason": "Heading 1 steps to (4, 6): about 14% of the belief sits within one cell of it, so inspecting there is worth the trip.", "candidates": [{"kind": "inspect", "cell": [4, 6], "gain": 0.862, "score": 25.734, "steps": 1}, {"kind": "inspect", "cell": [5, 6], "gain": 0.923, "score": 18.547, "steps": 2}, {"kind": "inspect", "cell": [4, 7], "gain": 0.792, "score": 15.916, "steps": 2}, {"kind": "inspect", "cell": [6, 5], "gain": 0.756, "score": 15.195, "steps": 2}], "action": {"type": "MOVE", "dir": "S"}, "observation": {"ok": true, "event": "moved", "pos": [4, 6], "battery": 86.0, "time_left": 148.0, "at_station": false, "neighbors": {"N": "free", "E": "free", "S": "free", "W": "free"}, "done": false, "outcome": null}, "belief": {"entropy": 5.6937, "map_cell": [5, 6], "map_mass_r2": 0.2337, "status": "active", "status_p": {"active": 0.7642, "damaged": 0.2146, "dormant": 0.0212}}}, {"step": 13, "before": {"pos": [4, 6], "battery": 86.0, "time_left": 148.0}, "strategy": "approach-eve", "reason": "Inspecting: 14% of the belief is within one cell of here.", "candidates": [{"kind": "inspect", "cell": [4, 6], "gain": 0.862, "score": 49.975, "steps": 0}, {"kind": "inspect", "cell": [5, 6], "gain": 0.923, "score": 27.544, "steps": 1}, {"kind": "inspect", "cell": [4, 7], "gain": 0.792, "score": 23.637, "steps": 1}, {"kind": "inspect", "cell": [6, 6], "gain": 0.813, "score": 16.343, "steps": 2}], "action": {"type": "INSPECT"}, "observation": {"ok": true, "event": "found_eve", "pos": [4, 6], "battery": 85.0, "time_left": 147.0, "at_station": false, "neighbors": {"N": "free", "E": "free", "S": "free", "W": "free"}, "done": true, "outcome": "found", "found": true, "status": "active"}, "belief": {"entropy": 5.6937, "map_cell": [5, 6], "map_mass_r2": 0.2337, "status": "active", "status_p": {"active": 0.7642, "damaged": 0.2146, "dormant": 0.0212}}}], "grid_width": 21, "grid_height": 21, "stations": [[1, 1], [10, 4]], "snapshots": [[0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.002, 0.002, 0.002, 0.002, 0.002, 0.002, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0021, 0.0024, 0.0024, 0.0024, 0.0024, 0.0023, 0.0021, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0021, 0.0027, 0.0037, 0.0045, 0.0045, 0.004, 0.0031, 0.0024, 0.0021, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0027, 0.0044, 0.0071, 0.009, 0.0086, 0.0065, 0.0041, 0.0027, 0.0021, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0039, 0.0068, 0.0106, 0.0127, 0.0111, 0.0074, 0.0042, 0.0026, 0.0021, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0043, 0.0071, 0.01, 0.011, 0.009, 0.0058, 0.0034, 0.0023, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0034, 0.0049, 0.0062, 0.0063, 0.0051, 0.0036, 0.0025, 0.0021, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0025, 0.0029, 0.0033, 0.0032, 0.0028, 0.0024, 0.0021, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.002, 0.0021, 0.0022, 0.0022, 0.0021, 0.002, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.002, 0.002, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019], [0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0036, 0.0, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0018, 0.0039, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.004, 0.0063, 0.0033, 0.0022, 0.002, 0.002, 0.0019, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0083, 0.0123, 0.0099, 0.0058, 0.0041, 0.0033, 0.0026, 0.002, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.013, 0.0231, 0.0242, 0.0153, 0.0088, 0.0055, 0.0034, 0.0022, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0129, 0.0246, 0.0278, 0.0192, 0.0111, 0.0063, 0.0035, 0.0022, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0071, 0.0124, 0.0146, 0.0119, 0.008, 0.0048, 0.0028, 0.0019, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0033, 0.0049, 0.0059, 0.0055, 0.0043, 0.0029, 0.0021, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0021, 0.0025, 0.0027, 0.0027, 0.0023, 0.002, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0017, 0.0018, 0.0018, 0.0018, 0.0017, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016], [0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0036, 0.0, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0018, 0.0039, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.004, 0.0063, 0.0033, 0.0022, 0.002, 0.002, 0.0019, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0083, 0.0123, 0.0099, 0.0058, 0.0041, 0.0033, 0.0026, 0.002, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.013, 0.0231, 0.0242, 0.0153, 0.0088, 0.0055, 0.0034, 0.0022, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0129, 0.0246, 0.0278, 0.0192, 0.0111, 0.0063, 0.0035, 0.0022, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0071, 0.0124, 0.0146, 0.0119, 0.008, 0.0048, 0.0028, 0.0019, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0033, 0.0049, 0.0059, 0.0055, 0.0043, 0.0029, 0.0021, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0021, 0.0025, 0.0027, 0.0027, 0.0023, 0.002, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0017, 0.0018, 0.0018, 0.0018, 0.0017, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016], [0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0036, 0.0, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0018, 0.0039, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.004, 0.0063, 0.0033, 0.0022, 0.002, 0.002, 0.0019, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0083, 0.0123, 0.0099, 0.0058, 0.0041, 0.0033, 0.0026, 0.002, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.013, 0.0231, 0.0242, 0.0153, 0.0088, 0.0055, 0.0034, 0.0022, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0129, 0.0246, 0.0278, 0.0192, 0.0111, 0.0063, 0.0035, 0.0022, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0071, 0.0124, 0.0146, 0.0119, 0.008, 0.0048, 0.0028, 0.0019, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0033, 0.0049, 0.0059, 0.0055, 0.0043, 0.0029, 0.0021, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0021, 0.0025, 0.0027, 0.0027, 0.0023, 0.002, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0017, 0.0018, 0.0018, 0.0018, 0.0017, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016], [0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0036, 0.0, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0018, 0.0039, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.004, 0.0063, 0.0033, 0.0022, 0.002, 0.002, 0.0019, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0083, 0.0123, 0.0099, 0.0058, 0.0041, 0.0033, 0.0026, 0.002, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.013, 0.0231, 0.0242, 0.0153, 0.0088, 0.0055, 0.0034, 0.0022, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0129, 0.0246, 0.0278, 0.0192, 0.0111, 0.0063, 0.0035, 0.0022, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0071, 0.0124, 0.0146, 0.0119, 0.008, 0.0048, 0.0028, 0.0019, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0033, 0.0049, 0.0059, 0.0055, 0.0043, 0.0029, 0.0021, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0021, 0.0025, 0.0027, 0.0027, 0.0023, 0.002, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0017, 0.0018, 0.0018, 0.0018, 0.0017, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016], [0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0036, 0.0, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0018, 0.0039, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.004, 0.0063, 0.0033, 0.0022, 0.002, 0.002, 0.0019, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0083, 0.0123, 0.0099, 0.0058, 0.0041, 0.0033, 0.0026, 0.002, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.013, 0.0231, 0.0242, 0.0153, 0.0088, 0.0055, 0.0034, 0.0022, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0129, 0.0246, 0.0278, 0.0192, 0.0111, 0.0063, 0.0035, 0.0022, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0071, 0.0124, 0.0146, 0.0119, 0.008, 0.0048, 0.0028, 0.0019, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0033, 0.0049, 0.0059, 0.0055, 0.0043, 0.0029, 0.0021, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0021, 0.0025, 0.0027, 0.0027, 0.0023, 0.002, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0017, 0.0018, 0.0018, 0.0018, 0.0017, 0.0017, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016, 0.0016], [0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0043, 0.0, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0022, 0.0047, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0048, 0.0074, 0.004, 0.0026, 0.0024, 0.0023, 0.0022, 0.0021, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0, 0.0, 0.0, 0.0069, 0.0049, 0.0039, 0.003, 0.0023, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0, 0.0, 0.0, 0.0182, 0.0105, 0.0066, 0.004, 0.0026, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0, 0.0, 0.0, 0.0228, 0.0131, 0.0075, 0.0042, 0.0025, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0084, 0.0147, 0.0173, 0.0141, 0.0095, 0.0057, 0.0033, 0.0023, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0039, 0.0058, 0.0069, 0.0065, 0.0051, 0.0035, 0.0025, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0024, 0.0029, 0.0032, 0.0032, 0.0028, 0.0023, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.002, 0.0021, 0.0021, 0.0021, 0.002, 0.002, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019, 0.0019], [0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.003, 0.0, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0015, 0.0033, 0.0014, 0.0014, 0.0014, 0.0015, 0.0015, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0034, 0.0053, 0.0028, 0.0019, 0.0022, 0.0025, 0.0022, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0, 0.0, 0.0, 0.0074, 0.0091, 0.0085, 0.0048, 0.0023, 0.0015, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0, 0.0, 0.0, 0.0521, 0.0416, 0.0254, 0.0095, 0.003, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0, 0.0, 0.0, 0.0581, 0.0552, 0.0311, 0.0102, 0.003, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0059, 0.0104, 0.0129, 0.0176, 0.0225, 0.015, 0.0058, 0.0023, 0.0015, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0028, 0.0041, 0.005, 0.0056, 0.0061, 0.0046, 0.0026, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0017, 0.0021, 0.0023, 0.0024, 0.0023, 0.0019, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0014, 0.0015, 0.0015, 0.0015, 0.0015, 0.0014, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0014, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013], [0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.003, 0.0, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0015, 0.0033, 0.0014, 0.0014, 0.0014, 0.0015, 0.0015, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0034, 0.0053, 0.0028, 0.0019, 0.0022, 0.0025, 0.0022, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0, 0.0, 0.0, 0.0074, 0.0091, 0.0085, 0.0048, 0.0023, 0.0015, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0, 0.0, 0.0, 0.0521, 0.0416, 0.0254, 0.0095, 0.003, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0, 0.0, 0.0, 0.0581, 0.0552, 0.0311, 0.0102, 0.003, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0059, 0.0104, 0.0129, 0.0176, 0.0225, 0.015, 0.0058, 0.0023, 0.0015, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0028, 0.0041, 0.005, 0.0056, 0.0061, 0.0046, 0.0026, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0017, 0.0021, 0.0023, 0.0024, 0.0023, 0.0019, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0014, 0.0015, 0.0015, 0.0015, 0.0015, 0.0014, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0014, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013], [0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.003, 0.0, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0015, 0.0033, 0.0014, 0.0014, 0.0014, 0.0015, 0.0015, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0034, 0.0053, 0.0028, 0.0019, 0.0022, 0.0025, 0.0022, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0, 0.0, 0.0, 0.0074, 0.0091, 0.0085, 0.0048, 0.0023, 0.0015, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0, 0.0, 0.0, 0.0521, 0.0416, 0.0254, 0.0095, 0.003, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0, 0.0, 0.0, 0.0581, 0.0552, 0.0311, 0.0102, 0.003, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0059, 0.0104, 0.0129, 0.0176, 0.0225, 0.015, 0.0058, 0.0023, 0.0015, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0028, 0.0041, 0.005, 0.0056, 0.0061, 0.0046, 0.0026, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0017, 0.0021, 0.0023, 0.0024, 0.0023, 0.0019, 0.0016, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0014, 0.0015, 0.0015, 0.0015, 0.0015, 0.0014, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0014, 0.0014, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013, 0.0013], [0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0039, 0.0, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.002, 0.0042, 0.0018, 0.0018, 0.0018, 0.0019, 0.0019, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0044, 0.0068, 0.0036, 0.0025, 0.0028, 0.0033, 0.0028, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0, 0.0, 0.0, 0.0, 0.0, 0.011, 0.0062, 0.0029, 0.0019, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0327, 0.0123, 0.0039, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0, 0.0, 0.0, 0.0, 0.0, 0.04, 0.0131, 0.0039, 0.002, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0077, 0.0135, 0.0166, 0.0227, 0.029, 0.0193, 0.0074, 0.0029, 0.0019, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0036, 0.0053, 0.0064, 0.0072, 0.0079, 0.006, 0.0034, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0022, 0.0027, 0.003, 0.003, 0.0029, 0.0025, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0018, 0.0019, 0.002, 0.002, 0.0019, 0.0018, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017], [0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0039, 0.0, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.002, 0.0042, 0.0018, 0.0018, 0.0018, 0.0019, 0.0019, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0044, 0.0068, 0.0036, 0.0025, 0.0028, 0.0033, 0.0028, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0, 0.0, 0.0, 0.0, 0.0, 0.011, 0.0062, 0.0029, 0.0019, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0327, 0.0123, 0.0039, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0, 0.0, 0.0, 0.0, 0.0, 0.04, 0.0131, 0.0039, 0.002, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0077, 0.0135, 0.0166, 0.0227, 0.029, 0.0193, 0.0074, 0.0029, 0.0019, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0036, 0.0053, 0.0064, 0.0072, 0.0079, 0.006, 0.0034, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0022, 0.0027, 0.003, 0.003, 0.0029, 0.0025, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0018, 0.0019, 0.002, 0.002, 0.0019, 0.0018, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017], [0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0039, 0.0, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.002, 0.0042, 0.0018, 0.0018, 0.0018, 0.0019, 0.0019, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0044, 0.0068, 0.0036, 0.0025, 0.0028, 0.0033, 0.0028, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0, 0.0, 0.0, 0.0, 0.0, 0.011, 0.0062, 0.0029, 0.0019, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0327, 0.0123, 0.0039, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0, 0.0, 0.0, 0.0, 0.0, 0.04, 0.0131, 0.0039, 0.002, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0077, 0.0135, 0.0166, 0.0227, 0.029, 0.0193, 0.0074, 0.0029, 0.0019, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0036, 0.0053, 0.0064, 0.0072, 0.0079, 0.006, 0.0034, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0022, 0.0027, 0.003, 0.003, 0.0029, 0.0025, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0018, 0.0019, 0.002, 0.002, 0.0019, 0.0018, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017], [0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0039, 0.0, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.002, 0.0042, 0.0018, 0.0018, 0.0018, 0.0019, 0.0019, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0044, 0.0068, 0.0036, 0.0025, 0.0028, 0.0033, 0.0028, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0, 0.0, 0.0, 0.0, 0.0, 0.011, 0.0062, 0.0029, 0.0019, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0327, 0.0123, 0.0039, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0, 0.0, 0.0, 0.0, 0.0, 0.04, 0.0131, 0.0039, 0.002, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0077, 0.0135, 0.0166, 0.0227, 0.029, 0.0193, 0.0074, 0.0029, 0.0019, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0036, 0.0053, 0.0064, 0.0072, 0.0079, 0.006, 0.0034, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0022, 0.0027, 0.003, 0.003, 0.0029, 0.0025, 0.0021, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0018, 0.0019, 0.002, 0.002, 0.0019, 0.0018, 0.0018, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017, 0.0017]], "path": [[1, 1], [1, 1], [1, 2], [1, 3], [1, 4], [1, 5], [1, 5], [1, 5], [2, 5], [3, 5], [3, 5], [4, 5], [4, 6], [4, 6]], "strategies": ["localize", "approach-eve", "approach-eve", "approach-eve", "approach-eve", "approach-eve", "localize", "approach-eve", "approach-eve", "approach-eve", "approach-eve", "approach-eve", "approach-eve"], "entropy": [5.9859, 5.7308, 5.7308, 5.7308, 5.7308, 5.7308, 5.8869, 5.308, 5.308, 5.308, 5.6937, 5.6937, 5.6937, 5.6937], "battery": [100.0, 98.0, 97.0, 96.0, 95.0, 94.0, 93.0, 91.0, 90.0, 89.0, 88.0, 87.0, 86.0, 85.0], "ground_truth": {"eve_pos": [3, 7], "eve_status": "active", "decoys": [], "walls": [[6, 0], [2, 1], [3, 1], [11, 1], [16, 1], [4, 2], [10, 2], [4, 3], [6, 4], [12, 4], [14, 4], [9, 5], [15, 5], [20, 6], [12, 7], [16, 7], [6, 8], [11, 8], [17, 8], [18, 8], [19, 8], [3, 9], [7, 9], [16, 9], [20, 9], [2, 10], [15, 10], [4, 11], [13, 11], [4, 12], [8, 12], [13, 12], [3, 13], [9, 13], [14, 14], [11, 15], [13, 15], [1, 16], [3, 16], [8, 16], [16, 16], [14, 17], [2, 18], [5, 18], [5, 19], [2, 20], [4, 20], [11, 20], [15, 20], [19, 20]]}}
+</script>
+
+<script>
+(function() {
+  const rawElement = document.getElementById('mission-data');
+  let missionData = null;
+  try {
+    missionData = JSON.parse(rawElement.textContent);
+  } catch(e) {
+    console.error("Failed to parse embedded mission data", e);
+  }
+
+  if (!missionData || !missionData.trace) {
+    document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h2>No mission data embedded.</h2></div>';
+    return;
+  }
+
+  const { report, trace, grid_width: W, grid_height: H, stations, snapshots, path, strategies, entropy, battery, ground_truth } = missionData;
+  const totalSteps = trace.length;
+  let currentStep = 0;
+  let isPlaying = false;
+  let playTimer = null;
+
+  // DOM Elements
+  const canvas = document.getElementById('gridCanvas');
+  const ctx = canvas.getContext('2d');
+  const timelineCanvas = document.getElementById('timelineCanvas');
+  const tctx = timelineCanvas.getContext('2d');
+  const scrubber = document.getElementById('stepScrubber');
+  const stepCounter = document.getElementById('stepCounter');
+  const btnPlay = document.getElementById('btnPlay');
+  const btnPrev = document.getElementById('btnPrev');
+  const btnNext = document.getElementById('btnNext');
+  const btnFirst = document.getElementById('btnFirst');
+  const btnLast = document.getElementById('btnLast');
+  const speedSelect = document.getElementById('speedSelect');
+  const evalToggle = document.getElementById('evalToggle');
+  const heatmapToggle = document.getElementById('heatmapToggle');
+  const tooltip = document.getElementById('cellTooltip');
+
+  // Colors
+  const STRAT_COLORS = {
+    "localize": "#3b82f6",
+    "search-clues": "#a855f7",
+    "approach-eve": "#10b981",
+    "return": "#f97316",
+    "recharge": "#eab308",
+    "finish": "#64748b",
+    "random": "#94a3b8"
+  };
+
+  // Init Header
+  document.getElementById('missionTitle').textContent = `Mission: ${report.mission || 'Run'}`;
+  document.getElementById('missionMeta').textContent = `Agent: ${report.agent} | Seed: ${report.seed} | Grid: ${W}x${H} | Total Steps: ${report.resources.steps}`;
+  const badge = document.getElementById('outcomeBadge');
+  badge.textContent = report.outcome;
+  badge.className = 'badge ' + (report.outcome === 'found' ? 'badge-found' : (report.outcome === 'active' ? 'badge-active' : 'badge-other'));
+
+  scrubber.max = totalSteps;
+
+  // Resize canvas
+  function resizeCanvas() {
+    const wrapper = canvas.parentElement;
+    const size = Math.min(wrapper.clientWidth - 40, wrapper.clientHeight - 40, 680);
+    canvas.width = size;
+    canvas.height = size;
+    renderGrid();
+  }
+  window.addEventListener('resize', () => { resizeCanvas(); renderTimeline(); });
+
+  // Grid Cell Calculations
+  function getCellSize() { return canvas.width / W; }
+
+  // Hover Tooltip
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const cellSize = getCellSize();
+    const x = Math.floor((e.clientX - rect.left) / cellSize);
+    const y = Math.floor((e.clientY - rect.top) / cellSize);
+    if (x >= 0 && x < W && y >= 0 && y < H) {
+      const snap = snapshots[Math.min(currentStep, snapshots.length - 1)];
+      const prob = snap ? (snap[y * W + x] * 100).toFixed(2) : '0';
+      const isStation = stations.some(s => s[0] === x && s[1] === y);
+      const isWall = ground_truth && ground_truth.walls && ground_truth.walls.some(w => w[0] === x && w[1] === y);
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.clientX - canvas.parentElement.getBoundingClientRect().left + 15) + 'px';
+      tooltip.style.top = (e.clientY - canvas.parentElement.getBoundingClientRect().top + 15) + 'px';
+      tooltip.innerHTML = `<strong>Cell (${x}, ${y})</strong><br>P(EVE): <b>${prob}%</b>${isStation ? '<br>⚡ Station' : ''}${isWall && evalToggle.checked ? '<br>🧱 Wall' : ''}`;
+    } else {
+      tooltip.style.display = 'none';
+    }
+  });
+  canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+
+  // Render Grid
+  function renderGrid() {
+    const cs = getCellSize();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const snap = snapshots[Math.min(currentStep, snapshots.length - 1)] || [];
+    const showEval = evalToggle.checked;
+    const showHeatmap = heatmapToggle.checked;
+
+    // 1. Draw Background Cells & Heatmap
+    let maxP = 0.0001;
+    for (let i = 0; i < snap.length; i++) if (snap[i] > maxP) maxP = snap[i];
+
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const idx = y * W + x;
+        const p = snap[idx] || 0;
+        
+        ctx.fillStyle = '#0a0f1d';
+        ctx.fillRect(x * cs, y * cs, cs, cs);
+
+        if (showHeatmap && p > 0.001) {
+          const intensity = Math.min(1, (p / maxP));
+          ctx.fillStyle = `rgba(239, 68, 68, ${intensity * 0.75})`;
+          ctx.fillRect(x * cs, y * cs, cs, cs);
+        }
+
+        // Cell border
+        ctx.strokeStyle = '#151f32';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x * cs, y * cs, cs, cs);
+      }
+    }
+
+    // 2. Discovered Walls or True Walls
+    if (showEval && ground_truth && ground_truth.walls) {
+      ctx.fillStyle = '#1e293b';
+      ground_truth.walls.forEach(([wx, wy]) => {
+        ctx.fillRect(wx * cs, wy * cs, cs, cs);
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(wx * cs, wy * cs, cs, cs);
+      });
+    }
+
+    // 3. Charging Stations
+    stations.forEach(([sx, sy]) => {
+      ctx.fillStyle = '#d4a017';
+      ctx.fillRect(sx * cs + cs*0.2, sy * cs + cs*0.2, cs*0.6, cs*0.6);
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(sx * cs + cs*0.2, sy * cs + cs*0.2, cs*0.6, cs*0.6);
+      // Lightning symbol
+      ctx.fillStyle = '#000';
+      ctx.font = `bold ${Math.max(10, cs*0.45)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('⚡', sx * cs + cs*0.5, sy * cs + cs*0.5);
+    });
+
+    // 4. Clues Discovered up to currentStep
+    const rec = trace[Math.max(0, currentStep - 1)];
+    const cluesSeen = [];
+    for (let i = 0; i < currentStep; i++) {
+      const o = trace[i].observation;
+      if (o.clues) {
+        o.clues.forEach(c => {
+          if (!cluesSeen.some(x => x.id === c.id)) cluesSeen.push(c);
+        });
+      }
+    }
+    cluesSeen.forEach(c => {
+      const [cx, cy] = c.pos;
+      ctx.save();
+      ctx.translate(cx * cs + cs/2, cy * cs + cs/2);
+      ctx.fillStyle = '#a855f7';
+      ctx.beginPath();
+      ctx.moveTo(0, -cs*0.35);
+      ctx.lineTo(cs*0.35, 0);
+      ctx.lineTo(0, cs*0.35);
+      ctx.lineTo(-cs*0.35, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // Line pointing to clue target
+      if (c.target) {
+        ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(cx * cs + cs/2, cy * cs + cs/2);
+        ctx.lineTo(c.target[0] * cs + cs/2, c.target[1] * cs + cs/2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    });
+
+    // 5. Evaluation Overlay: True EVE & Decoys
+    if (showEval && ground_truth) {
+      if (ground_truth.decoys) {
+        ground_truth.decoys.forEach(([dx, dy]) => {
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(dx * cs + cs*0.2, dy * cs + cs*0.2);
+          ctx.lineTo(dx * cs + cs*0.8, dy * cs + cs*0.8);
+          ctx.moveTo(dx * cs + cs*0.8, dy * cs + cs*0.2);
+          ctx.lineTo(dx * cs + cs*0.2, dy * cs + cs*0.8);
+          ctx.stroke();
+        });
+      }
+      if (ground_truth.eve_pos) {
+        const [ex, ey] = ground_truth.eve_pos;
+        ctx.fillStyle = '#10b981';
+        ctx.font = `bold ${cs*0.75}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('★', ex * cs + cs*0.5, ey * cs + cs*0.52);
+      }
+    }
+
+    // 6. Path Trail up to currentStep
+    const pts = path.slice(0, currentStep + 1);
+    if (pts.length > 1) {
+      for (let i = 0; i < pts.length - 1; i++) {
+        const strat = strategies[i] || 'localize';
+        ctx.strokeStyle = STRAT_COLORS[strat] || '#94a3b8';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(pts[i][0] * cs + cs/2, pts[i][1] * cs + cs/2);
+        ctx.lineTo(pts[i+1][0] * cs + cs/2, pts[i+1][1] * cs + cs/2);
+        ctx.stroke();
+      }
+    }
+
+    // 7. WALL-E Robot Marker
+    if (pts.length > 0) {
+      const cur = pts[pts.length - 1];
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(cur[0] * cs + cs/2, cur[1] * cs + cs/2, cs*0.38, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Eyes/Icon
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(cur[0] * cs + cs*0.4, cur[1] * cs + cs*0.45, cs*0.08, 0, Math.PI * 2);
+      ctx.arc(cur[0] * cs + cs*0.6, cur[1] * cs + cs*0.45, cs*0.08, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Update HUD
+  function updateHUD() {
+    scrubber.value = currentStep;
+    stepCounter.textContent = `Step ${currentStep} / ${totalSteps}`;
+
+    if (currentStep === 0) {
+      document.getElementById('valBattery').textContent = battery[0].toFixed(1);
+      document.getElementById('valTime').textContent = report.resources.time_budget;
+      document.getElementById('valEntropy').textContent = entropy[0].toFixed(2);
+      document.getElementById('reasoningText').textContent = "Initial state. Waiting for first action decision.";
+      document.getElementById('actionExecuted').textContent = "None (Briefing)";
+      document.getElementById('obsEvent').textContent = "start";
+      document.getElementById('currentStrategyTag').textContent = "START";
+      document.getElementById('currentStrategyTag').style.background = "#334155";
+      document.getElementById('candidatesTableBody').innerHTML = '<tr><td colspan="5" style="color: var(--text-muted); text-align: center;">Mission briefing phase</td></tr>';
+      return;
+    }
+
+    const rec = trace[currentStep - 1];
+    document.getElementById('valBattery').textContent = rec.before.battery.toFixed(1);
+    document.getElementById('valTime').textContent = rec.before.time_left.toFixed(0);
+    document.getElementById('valEntropy').textContent = rec.belief.entropy.toFixed(2);
+
+    // Condition meters
+    if (rec.belief && rec.belief.status_p) {
+      const sp = rec.belief.status_p;
+      const a = Math.round((sp.active || 0) * 100);
+      const d = Math.round((sp.damaged || 0) * 100);
+      const dm = Math.round((sp.dormant || 0) * 100);
+      document.getElementById('barActive').style.width = a + '%';
+      document.getElementById('pctActive').textContent = a + '%';
+      document.getElementById('barDamaged').style.width = d + '%';
+      document.getElementById('pctDamaged').textContent = d + '%';
+      document.getElementById('barDormant').style.width = dm + '%';
+      document.getElementById('pctDormant').textContent = dm + '%';
+    }
+
+    // Reasoning & Strategy
+    const strat = rec.strategy || 'localize';
+    const tag = document.getElementById('currentStrategyTag');
+    tag.textContent = strat;
+    tag.style.background = STRAT_COLORS[strat] || '#334155';
+
+    document.getElementById('reasoningText').textContent = rec.reason || 'No reason logged.';
+    
+    // Action format
+    let actStr = rec.action.type;
+    if (rec.action.dir) actStr += ` (${rec.action.dir})`;
+    document.getElementById('actionExecuted').textContent = actStr;
+    document.getElementById('obsEvent').textContent = rec.observation.event || 'ok';
+
+    // Candidates Table
+    const tbody = document.getElementById('candidatesTableBody');
+    if (rec.candidates && rec.candidates.length > 0) {
+      tbody.innerHTML = rec.candidates.map(c => `
+        <tr>
+          <td><span style="color:${STRAT_COLORS[c.kind]||'#fff'}">${c.kind}</span></td>
+          <td>(${c.cell[0]},${c.cell[1]})</td>
+          <td>${c.gain}</td>
+          <td>${c.steps}</td>
+          <td><b>${c.score}</b></td>
+        </tr>
+      `).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="5" style="color: var(--text-muted); text-align: center;">Direct action (no candidate list)</td></tr>';
+    }
+  }
+
+  // Render Timeline
+  function renderTimeline() {
+    const w = timelineCanvas.parentElement.clientWidth;
+    const h = timelineCanvas.parentElement.clientHeight;
+    timelineCanvas.width = w;
+    timelineCanvas.height = h;
+
+    tctx.clearRect(0, 0, w, h);
+    if (totalSteps === 0) return;
+
+    const maxBat = Math.max(...battery, 100);
+    const maxEnt = Math.max(...entropy, 1);
+
+    // Shading per strategy
+    for (let i = 0; i < totalSteps; i++) {
+      const x1 = (i / totalSteps) * w;
+      const x2 = ((i + 1) / totalSteps) * w;
+      const strat = strategies[i] || 'localize';
+      tctx.fillStyle = (STRAT_COLORS[strat] || '#334155') + '22';
+      tctx.fillRect(x1, 0, x2 - x1, h);
+    }
+
+    // Battery curve (orange)
+    tctx.strokeStyle = '#f97316';
+    tctx.lineWidth = 1.5;
+    tctx.beginPath();
+    battery.forEach((b, i) => {
+      const x = (i / totalSteps) * w;
+      const y = h - (b / maxBat) * (h - 10) - 5;
+      if (i === 0) tctx.moveTo(x, y); else tctx.lineTo(x, y);
+    });
+    tctx.stroke();
+
+    // Entropy curve (blue)
+    tctx.strokeStyle = '#3b82f6';
+    tctx.lineWidth = 1.5;
+    tctx.beginPath();
+    entropy.forEach((e, i) => {
+      const x = (i / totalSteps) * w;
+      const y = h - (e / maxEnt) * (h - 10) - 5;
+      if (i === 0) tctx.moveTo(x, y); else tctx.lineTo(x, y);
+    });
+    tctx.stroke();
+
+    // Current Step Playhead
+    const curX = (currentStep / totalSteps) * w;
+    tctx.strokeStyle = '#ffffff';
+    tctx.lineWidth = 2;
+    tctx.beginPath();
+    tctx.moveTo(curX, 0);
+    tctx.lineTo(curX, h);
+    tctx.stroke();
+  }
+
+  // Timeline Click Seek
+  timelineCanvas.parentElement.addEventListener('click', (e) => {
+    const rect = timelineCanvas.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    currentStep = Math.round(ratio * totalSteps);
+    onStepChange();
+  });
+
+  function onStepChange() {
+    renderGrid();
+    updateHUD();
+    renderTimeline();
+  }
+
+  scrubber.addEventListener('input', (e) => {
+    currentStep = parseInt(e.target.value, 10);
+    onStepChange();
+  });
+
+  // Playback Loop
+  function play() {
+    if (currentStep >= totalSteps) currentStep = 0;
+    isPlaying = true;
+    btnPlay.textContent = '⏸ Pause';
+    btnPlay.className = 'btn btn-primary';
+    
+    const interval = 1000 / (4 * parseFloat(speedSelect.value));
+    playTimer = setInterval(() => {
+      if (currentStep < totalSteps) {
+        currentStep++;
+        onStepChange();
+      } else {
+        pause();
+      }
+    }, interval);
+  }
+
+  function pause() {
+    isPlaying = false;
+    btnPlay.textContent = '▶ Play';
+    btnPlay.className = 'btn btn-primary';
+    if (playTimer) clearInterval(playTimer);
+  }
+
+  btnPlay.addEventListener('click', () => isPlaying ? pause() : play());
+  btnPrev.addEventListener('click', () => { if (currentStep > 0) { currentStep--; onStepChange(); } });
+  btnNext.addEventListener('click', () => { if (currentStep < totalSteps) { currentStep++; onStepChange(); } });
+  btnFirst.addEventListener('click', () => { currentStep = 0; onStepChange(); });
+  btnLast.addEventListener('click', () => { currentStep = totalSteps; onStepChange(); });
+  speedSelect.addEventListener('change', () => { if (isPlaying) { pause(); play(); } });
+  evalToggle.addEventListener('change', () => renderGrid());
+  heatmapToggle.addEventListener('change', () => renderGrid());
+
+  // Keyboard Navigation
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') { e.preventDefault(); isPlaying ? pause() : play(); }
+    else if (e.code === 'ArrowLeft') { if (currentStep > 0) { currentStep--; onStepChange(); } }
+    else if (e.code === 'ArrowRight') { if (currentStep < totalSteps) { currentStep++; onStepChange(); } }
+  });
+
+  // Open Report Modal
+  document.getElementById('openReportBtn').addEventListener('click', () => {
+    const win = window.open('', '_blank');
+    win.document.write(`
+      <html><head><title>Mission Report: ${report.mission}</title>
+      <style>
+        body { font-family: monospace; background: #090d16; color: #f8fafc; padding: 24px; line-height: 1.5; }
+        pre { background: #111827; padding: 16px; border-radius: 8px; border: 1px solid #1f293d; overflow: auto; }
+      </style></head>
+      <body>
+        <h1>Mission Report: ${report.mission}</h1>
+        <p><b>Outcome:</b> ${report.outcome} | <b>Location:</b> ${JSON.stringify(report.inferred_location)} | <b>Status:</b> ${JSON.stringify(report.inferred_status)}</p>
+        <h2>Recommended Next Step</h2>
+        <p style="background: #1e293b; padding: 12px; border-left: 4px solid #3b82f6;">${report.recommended_next_step}</p>
+        <h2>Full JSON Report</h2>
+        <pre>${JSON.stringify(report, null, 2)}</pre>
+      </body></html>
+    `);
+  });
+
+  // Initial Render
+  resizeCanvas();
+  onStepChange();
+})();
+</script>
+</body>
+</html>

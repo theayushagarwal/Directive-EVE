@@ -1,0 +1,113 @@
+{
+  "mission": "mission_easy",
+  "seed": 7,
+  "agent": "belief",
+  "outcome": "found",
+  "found": true,
+  "inferred_location": {
+    "cell": [
+      4,
+      6
+    ],
+    "within_cells": 1,
+    "confirmed": true
+  },
+  "location_confidence": 1.0,
+  "inferred_status": {
+    "status": "active",
+    "probability": 1.0,
+    "basis": "confirmed by direct inspection",
+    "distribution": {
+      "active": 0.764,
+      "damaged": 0.215,
+      "dormant": 0.021
+    }
+  },
+  "evidence": {
+    "initial_signal": {
+      "strength": 0.4455,
+      "bearing_deg": 68.7754,
+      "timestamp": 0.0,
+      "origin": [
+        1,
+        1
+      ]
+    },
+    "signal_readings": 2,
+    "signal_dropouts": 0,
+    "strongest_reading": {
+      "step": 7,
+      "pos": [
+        1,
+        5
+      ],
+      "strength": 0.6764476873386572,
+      "bearing_deg": 9.872833882325642
+    },
+    "suspicious_readings": 1,
+    "clues": [],
+    "cells_inspected_empty": [
+      [
+        1,
+        5
+      ],
+      [
+        3,
+        5
+      ]
+    ]
+  },
+  "recommended_next_step": "EVE is responsive: open a comms link and escort her to the nearest station. She is 8 steps from a station; a round trip needs about 20 battery.",
+  "resources": {
+    "steps": 13,
+    "battery_spent": 15.0,
+    "time_used": 13.0,
+    "time_budget": 160,
+    "recharges": 0,
+    "stats": {
+      "moves": 8,
+      "bumps": 0,
+      "scans": 2,
+      "area_scans": 0,
+      "inspects": 3,
+      "recharges": 0,
+      "dropouts": 0,
+      "suspicious": 1
+    }
+  },
+  "strategy_timeline": [
+    {
+      "phase": "localize",
+      "from_step": 1,
+      "to_step": 1
+    },
+    {
+      "phase": "approach-eve",
+      "from_step": 2,
+      "to_step": 6
+    },
+    {
+      "phase": "localize",
+      "from_step": 7,
+      "to_step": 7
+    },
+    {
+      "phase": "approach-eve",
+      "from_step": 8,
+      "to_step": 13
+    }
+  ],
+  "evaluation_only": {
+    "note": "Ground truth, used only to score the run. The agent never saw any of this.",
+    "eve_position": [
+      3,
+      7
+    ],
+    "eve_status": "active",
+    "best_guess_error_cells": 1.41,
+    "decoy_clues": [
+      0
+    ],
+    "decoy_signal_sources": []
+  }
+}

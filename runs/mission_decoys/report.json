@@ -1,0 +1,210 @@
+{
+  "mission": "mission_decoys",
+  "seed": 3,
+  "agent": "belief",
+  "outcome": "found",
+  "found": true,
+  "inferred_location": {
+    "cell": [
+      16,
+      9
+    ],
+    "within_cells": 1,
+    "confirmed": true
+  },
+  "location_confidence": 1.0,
+  "inferred_status": {
+    "status": "damaged",
+    "probability": 1.0,
+    "basis": "confirmed by direct inspection",
+    "distribution": {
+      "active": 0.009,
+      "damaged": 0.99,
+      "dormant": 0.0
+    }
+  },
+  "evidence": {
+    "initial_signal": {
+      "strength": 0.0398,
+      "bearing_deg": -2.5153,
+      "timestamp": 0.0,
+      "origin": [
+        1,
+        1
+      ]
+    },
+    "signal_readings": 12,
+    "signal_dropouts": 5,
+    "strongest_reading": {
+      "step": 5,
+      "pos": [
+        2,
+        1
+      ],
+      "strength": 0.32132040922258165,
+      "bearing_deg": 28.373215156742116
+    },
+    "suspicious_readings": 1,
+    "clues": [],
+    "cells_inspected_empty": [
+      [
+        16,
+        4
+      ],
+      [
+        18,
+        4
+      ],
+      [
+        18,
+        6
+      ],
+      [
+        17,
+        7
+      ],
+      [
+        17,
+        3
+      ],
+      [
+        17,
+        1
+      ],
+      [
+        14,
+        1
+      ],
+      [
+        14,
+        5
+      ],
+      [
+        14,
+        7
+      ]
+    ]
+  },
+  "recommended_next_step": "EVE is damaged: bring a repair kit and stabilise her before moving her. She is 12 steps from a station; a round trip needs about 28 battery.",
+  "resources": {
+    "steps": 113,
+    "battery_spent": 131.0,
+    "time_used": 121.0,
+    "time_budget": 160,
+    "recharges": 3,
+    "stats": {
+      "moves": 81,
+      "bumps": 0,
+      "scans": 17,
+      "area_scans": 2,
+      "inspects": 10,
+      "recharges": 3,
+      "dropouts": 5,
+      "suspicious": 1
+    }
+  },
+  "strategy_timeline": [
+    {
+      "phase": "localize",
+      "from_step": 1,
+      "to_step": 8
+    },
+    {
+      "phase": "search-clues",
+      "from_step": 9,
+      "to_step": 9
+    },
+    {
+      "phase": "localize",
+      "from_step": 10,
+      "to_step": 22
+    },
+    {
+      "phase": "approach-eve",
+      "from_step": 23,
+      "to_step": 23
+    },
+    {
+      "phase": "localize",
+      "from_step": 24,
+      "to_step": 24
+    },
+    {
+      "phase": "approach-eve",
+      "from_step": 25,
+      "to_step": 41
+    },
+    {
+      "phase": "search-clues",
+      "from_step": 42,
+      "to_step": 42
+    },
+    {
+      "phase": "approach-eve",
+      "from_step": 43,
+      "to_step": 55
+    },
+    {
+      "phase": "return",
+      "from_step": 56,
+      "to_step": 79
+    },
+    {
+      "phase": "recharge",
+      "from_step": 80,
+      "to_step": 82
+    },
+    {
+      "phase": "approach-eve",
+      "from_step": 83,
+      "to_step": 84
+    },
+    {
+      "phase": "localize",
+      "from_step": 85,
+      "to_step": 86
+    },
+    {
+      "phase": "approach-eve",
+      "from_step": 87,
+      "to_step": 87
+    },
+    {
+      "phase": "localize",
+      "from_step": 88,
+      "to_step": 88
+    },
+    {
+      "phase": "approach-eve",
+      "from_step": 89,
+      "to_step": 113
+    }
+  ],
+  "evaluation_only": {
+    "note": "Ground truth, used only to score the run. The agent never saw any of this.",
+    "eve_position": [
+      17,
+      10
+    ],
+    "eve_status": "damaged",
+    "best_guess_error_cells": 1.41,
+    "decoy_clues": [
+      1,
+      2
+    ],
+    "decoy_signal_sources": [
+      [
+        7,
+        10
+      ],
+      [
+        14,
+        1
+      ],
+      [
+        15,
+        0
+      ]
+    ]
+  }
+}
